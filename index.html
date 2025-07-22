@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>모바일 카드 포스</title>
+<style>
+  body {
+    margin: 0; padding: 0;
+    background: #222;
+    color: #fff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+  }
+  h1 {
+    margin: 10px 0;
+    font-size: 1.5rem;
+  }
+  #card-display {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  #card-display img {
+    width: 80vw;
+    max-width: 300px;
+    height: auto;
+    border-radius: 12px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.6);
+    user-select: none;
+  }
+  #buttons {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 10px 0;
+    background: #111;
+    gap: 20px;
+  }
+  button {
+    flex: none;
+    padding: 12px 20px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    background: #444;
+    color: #fff;
+    user-select: none;
+    transition: background 0.3s;
+    cursor: pointer;
+  }
+  button:active {
+    background: #888;
+  }
+  #settings {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.9);
+    overflow-y: auto;
+    display: none;
+    padding: 10px;
+    z-index: 9999;
+  }
+  #settings h2 {
+    color: #fff;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  #card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    gap: 8px;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  #card-grid img {
+    width: 100%;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    user-select: none;
+    transition: border-color 0.3s;
+  }
+  #card-grid img.selected {
+    border-color: #ffd700;
+  }
+  #close-settings {
+    display: block;
+    margin: 10px auto 0;
+    padding: 10px 20px;
+    font-size: 1.1rem;
+    background: #ffd700;
+    color: #222;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+</style>
+</head>
+<body>
+
+<h1>모바일 카드 포스</h1>
+
+<div id="card-display">
+  <img id="card-img" src="https://deckofcardsapi.com/static/img/back.png" alt="카드 뒷면" draggable="false" />
+</div>
+
+<div id="buttons">
+  <button id="start-btn">넘기기 시작</button>
+  <button id="stop-btn">멈춰</button>
+</div>
+
+<div id="settings">
+  <h2>포스 카드 선택</h2>
+  <div id="card-grid"></div>
+  <button id="close-settings">설정 닫기</button>
+</div>
+
+<script>
+  const suits = ['C', 'D', 'H', 'S'];
+  const values = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+  const cardGrid = document.getElementById('card-grid');
+  const cardImg = document.getElementById('card-img');
+  const settings = document.getElementById('settings');
+
+  let allCards = [];
+  let interval = null;
+  let forcedCard = 'AS'; 
+  let currentCard = '';
+
+  function getCardURL(code) {
+    if (code.startsWith('10')) {
+      return `https://deckofcardsapi.com/static/img/0${code[2]}.png`;
+    }
+    return `https://deckofcardsapi.com/static/img/${code}.png`;
+  }
+
+  suits.forEach(suit => {
+    values.forEach(value => {
+      allCards.push(value + suit);
+    });
+  });
+
+  function renderCardGrid() {
+    cardGrid.innerHTML = '';
+    allCards.forEach(code => {
+      const img = document.createElement('img');
+      img.src = getCardURL(code);
+      img.alt = code;
+      img.draggable = false;
+      img.onclick = () => {
+        forcedCard = code;
+        highlightSelectedCard();
+      };
+      cardGrid.appendChild(img);
+    });
+    highlightSelectedCard();
+  }
+
+  function highlightSelectedCard() {
+    Array.from(cardGrid.children).forEach(img => {
+      img.classList.toggle('selected', img.alt === forcedCard);
+    });
+  }
+
+  function startFlip() {
+    if(interval) return;
+    interval = setInterval(() => {
+      const random = allCards[Math.floor(Math.random() * allCards.length)];
+      cardImg.src = getCardURL(random);
+      currentCard = random;
+    }, 100);
+  }
+
+  function stopFlip() {
+    if(interval) {
+      clearInterval(interval);
+      interval = null;
+    }
+    cardImg.src = getCardURL(forcedCard);
+    currentCard = forcedCard;
+  }
+
+  function openSettings() {
+    settings.style.display = 'block';
+  }
+  function closeSettings() {
+    settings.style.display = 'none';
+  }
+
+  // 3번 터치 감지 (빠르게 3번 터치하면 설정창 열림)
+  let tapCount = 0;
+  let tapTimer = null;
+
+  document.body.addEventListener('touchstart', () => {
+    tapCount++;
+    if (tapTimer) clearTimeout(tapTimer);
+    tapTimer = setTimeout(() => {
+      tapCount = 0;
+    }, 800);
+    if (tapCount === 3) {
+      openSettings();
+      tapCount = 0;
+    }
+  });
+
+  document.getElementById('start-btn').onclick = startFlip;
+  document.getElementById('stop-btn').onclick = stopFlip;
+  document.getElementById('close-settings').onclick = closeSettings;
+
+  renderCardGrid();
+</script>
+
+</body>
+</html>
